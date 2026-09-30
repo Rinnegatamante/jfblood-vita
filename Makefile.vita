@@ -2,12 +2,15 @@ TARGET		:= jfblood
 TITLE		:= JFBLOOD01
 GIT_VERSION := $(shell git describe --abbrev=6 --dirty --always --tags)
 
-LIBS = -lSDL2 -lvita2d -lvorbisfile -lvorbis -logg  -lspeexdsp -lmpg123 \
+PKG_CONFIG ?= arm-vita-eabi-pkg-config
+SDL_LIBS := $(shell $(PKG_CONFIG) --static --libs sdl2)
+
+LIBS = -Wl,--start-group $(SDL_LIBS) -lSDL2 -lvita2d -lvorbisfile -lvorbis -logg  -lspeexdsp -lmpg123 \
 	-lc -lSceCommonDialog_stub -lSceAudio_stub -lSceLibKernel_stub \
 	-ltaihen_stub -lSceNet_stub -lSceNetCtl_stub -lpng -lSceDisplay_stub -lSceGxm_stub -lSceHid_stub \
 	-lSceSysmodule_stub -lSceCtrl_stub -lSceTouch_stub -lSceMotion_stub -lm -lSceAppMgr_stub \
 	-lSceAppUtil_stub -lScePgf_stub -ljpeg -lSceRtc_stub -lScePower_stub -lcurl -lssl -lcrypto -lz \
-	-lSceKernelDmacMgr_stub -lSceIme_stub -lSceAudioIn_stub
+	-lSceKernelDmacMgr_stub -lSceIme_stub -lSceAudioIn_stub -lSceShaccCgExt -Wl,--end-group
 
 # build locations
 SRC=src
@@ -175,6 +178,9 @@ CFLAGS  = -Wl,-q,--wrap,fopen,--wrap,opendir,--wrap,open,--wrap,access,--wrap,st
 CXXFLAGS  = $(CFLAGS) -fno-exceptions -std=gnu++11
 ASFLAGS = $(CFLAGS)
 
+# The game keeps Amiga compatibility paths, but its audio sleep backend is POSIX.
+$(AUDIOSRC)/asssys.o: CFLAGS += -U__AMIGA__
+
 all: $(TARGET).vpk
 
 $(TARGET).vpk: $(TARGET).velf
@@ -193,7 +199,7 @@ $(TARGET).vpk: $(TARGET).velf
 	vita-elf-create $< $@
 
 $(TARGET).elf: $(OBJS) $(BUGGY_OBJS)
-	$(CXX) $(CXXFLAGS) $^ $(LIBS) -o $@
+	$(CXX) $(CXXFLAGS) -pthread $^ $(LDFLAGS) $(LIBS) -o $@
 
 clean:
 	@rm -rf $(TARGET).velf $(TARGET).elf $(OBJS) $(TARGET).elf.unstripped.elf $(TARGET).vpk build/eboot.bin ./param.sfo
